@@ -302,6 +302,7 @@
             <xpath expr="//field[@name='summary']" position="after">
                 <field name="responsible_id"/>
                 <field name="stages"/>
+                <field name="stage_id"/>
             </xpath>
            </field>
        </record>
@@ -313,6 +314,7 @@
             <xpath expr="//field[@name='summary']" position="after">
                 <field name="responsible_id"/>
                 <field name="stages"/>
+                <field name="stage_id"/>
             </xpath>
            </field>
        </record>
@@ -339,6 +341,76 @@
                 record.activity_scheduler()
             </field>
         </record>
+
+
+<record id="view_task_checklist_analysis_tree" model="ir.ui.view">
+    <field name="name">task.checklist.analysis.tree</field>
+    <field name="model">task.checklist</field>
+    <field name="arch" type="xml">
+        <tree string="Analyse des Tâches">
+            <field name="name"/>
+            <field name="responsible_id"/>
+            <field name="folder_id"/>
+            <field name="time_spent_days"/>
+            <field name="time_spent_float"/>
+        </tree>
+    </field>
+</record>
+
+<record id="view_task_checklist_analysis_search" model="ir.ui.view">
+    <field name="name">task.checklist.analysis.search</field>
+    <field name="model">task.checklist</field>
+    <field name="arch" type="xml">
+        <search string="Recherche des tâches">
+            <field name="name"/>
+            <field name="responsible_id"/>
+            <field name="folder_id"/>
+            <field name="date_start"/>
+            <field name="state"/>
+            <filter  string="Cette année" name="current_year" date="date_start" default_period="this_year"/>
+            <filter name="filter_transit" string="Transit" domain="[('state', '=', 'transit')]" />
+            <filter name="filter_acconage" string="Acconage" domain="[('state', '=', 'accone')]" />
+            <filter name="filter_shipping" string="Shipping" domain="[('state', '=', 'ship')]" />
+        </search>
+    </field>
+</record>
+
+<record id="view_task_checklist_analysis_graph" model="ir.ui.view">
+    <field name="name">task.checklist.analysis.graph</field>
+    <field name="model">task.checklist</field>
+    <field name="arch" type="xml">
+        <graph string="Temps passé par tâche" type="bar">
+            <field name="responsible_id"/>
+            <field name="time_spent_float" type="measure"/>
+        </graph>
+    </field>
+</record>
+
+<record id="view_task_checklist_analysis_pivot" model="ir.ui.view">
+    <field name="name">task.checklist.analysis.pivot</field>
+    <field name="model">task.checklist</field>
+    <field name="arch" type="xml">
+        <pivot string="Analyse des Tâches">
+            <field name="responsible_id" type="row"/>
+            <field name="folder_id" type="row"/>
+            <field name="time_spent_days" type="measure"/>
+            <field name="time_spent_float" type="measure"/>
+        </pivot>
+    </field>
+</record>
+
+<record id="action_task_checklist_analysis" model="ir.actions.act_window">
+    <field name="name">Analyse des tâches</field>
+    <field name="res_model">task.checklist</field>
+    <field name="view_mode">graph,pivot</field>
+     <field name="search_view_id" ref="view_task_checklist_analysis_search"/>
+     <field name="context">{
+        'search_default_current_year':1,
+        }</field>
+    <field name="domain">[('state', '=', 'transit')]</field>
+</record>
+
+<menuitem id="menu_task_checklist_analysis" name="Analyse des tâches" parent="inov_transit.menu_report_id" action="action_task_checklist_analysis"/>
 
     </data>
 </odoo>

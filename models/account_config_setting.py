@@ -64,7 +64,7 @@ class PartnerTransit(models.Model):
         '''
         Cette fonction retourne une action qui affiche les dossiers de transit pour le partenaire donné.
         '''
-        action = self.env.ref('transit_invoice.action_transit_folder').read()[0]
+        action = self.env.ref('inov_transit.action_transit_folder').read()[0]
         action['domain'] = literal_eval(action['domain'])
         action['domain'].append(('customer_id', 'child_of', self.id))
         return action
@@ -73,7 +73,7 @@ class PartnerTransit(models.Model):
         '''
         Cette fonction retourne une action qui affiche les dossiers d'acconage pour le partenaire donné.
         '''
-        action = self.env.ref('transit_invoice.action_acconage_folder').read()[0]
+        action = self.env.ref('inov_transit.action_acconage_folder').read()[0]
         action['domain'] = literal_eval(action['domain'])
         action['domain'].append(('customer_id', 'child_of', self.id))
         return action

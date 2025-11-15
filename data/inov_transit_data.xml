@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="product_product_variable_cost" model="product.product">
+            <field name="name">Commission sur Debour</field>
+            <field name="list_price">1</field>
+            <field name="standard_price">1.0</field>
+            <field name="type">service</field>
+            <field name="default_code">CMSD</field>
+            <field name="categ_id" ref="product.product_category_all"/>
+        </record>
+         <record id="product_product_fixed_cost" model="product.product">
+            <field name="name">Honoraire</field>
+            <field name="list_price">1</field>
+            <field name="standard_price">1.0</field>
+            <field name="type">service</field>
+            <field name="default_code">HAD</field>
+            <field name="categ_id" ref="product.product_category_all"/>
+        </record>
+         <record id="product_product_debours" model="product.product">
+            <field name="name">Debours</field>
+            <field name="list_price">1.0</field>
+            <field name="standard_price">1.0</field>
+            <field name="type">service</field>
+            <field name="default_code">DEB</field>
+            <field name="categ_id" ref="product.product_category_all"/>
+        </record>
+
+        <record id="view_prestation_transit_fixed" model="prestation.transit">
+            <field name="name">Commission sur Debour</field>
+            <field name="product_id" ref="inov_transit.product_product_variable_cost"/>
+            <field name="type_service">fixed</field>
+            <field name="caution">0.0</field>
+            <field name="taux">1.5</field>
+        </record>
+        <record id="view_prestation_transit_changed" model="prestation.transit">
+            <field name="name">Honoraire</field>
+            <field name="product_id" ref="inov_transit.product_product_fixed_cost"/>
+            <field name="type_service">changed</field>
+            <field name="caution">245000.0</field>
+            <field name="taux">0.5</field>
+        </record>
+
+    </data>
+</odoo>

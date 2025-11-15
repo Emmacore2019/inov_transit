@@ -62,7 +62,7 @@ class TransitAccountInvoice(models.Model):
     number_d = fields.Char(string='Numero')
     service_ids = fields.Many2many('debour.transit')
     folder_type = fields.Selection([('transit', 'Dedouanement'), ('accone', 'Acconage'), ('ship', 'Shipping')],
-                                   string="Processus", required=True)
+                                   string="Processus")
     amount_transit_debours = fields.Monetary("Debours", compute='_compute_amount_transit', currency_field='currency_id',
                                              store=True, tracking=True)
     amount_transit_expense = fields.Monetary("Autres Charges", compute='_compute_amount_transit',
@@ -78,13 +78,13 @@ class TransitAccountInvoice(models.Model):
         """
         self.filtered(lambda inv: not inv.sent).write({'sent': True})
         if self.user_has_groups('account.group_account_invoice') and self.partner_id.regime_type == 'simple':
-            return self.env.ref('transit_invoice.account_invoice_folder_simple_id').report_action(self)
+            return self.env.ref('inov_transit.account_invoice_folder_simple_id').report_action(self)
         if self.user_has_groups('account.group_account_invoice') and self.partner_id.regime_type == 'sorepco':
-            return self.env.ref('transit_invoice.account_invoices_folder_transit_sorepco').report_action(self)
+            return self.env.ref('inov_transit.account_invoices_folder_transit_sorepco').report_action(self)
         if self.user_has_groups('account.group_account_invoice') and self.partner_id.regime_type == 'placam':
-            return self.env.ref('transit_invoice.account_invoices_folder_transit_placam').report_action(self)
+            return self.env.ref('inov_transit.account_invoices_folder_transit_placam').report_action(self)
         if self.user_has_groups('account.group_account_invoice') and self.partner_id.regime_type == 'cimaf':
-            return self.env.ref('transit_invoice.account_invoices_folder_transit_cimaf').report_action(self)
+            return self.env.ref('inov_transit.account_invoices_folder_transit_cimaf').report_action(self)
         return self.env.ref('account.account_invoices').report_action(self)
 
 
@@ -115,7 +115,7 @@ class TransitAccountInvoice(models.Model):
 
         for folder in self:
             if folder.service_ids:
-                commission = self.env.ref('transit_invoice.view_prestation_transit_fixed')
+                commission = self.env.ref('inov_transit.view_prestation_transit_fixed')
                 if commission.product_id.id:
                     account_id = self.fiscal_position_id.map_account(
                         commission.product_id.property_account_income_id or commission.product_id.categ_id.property_account_income_categ_id).id
@@ -132,7 +132,7 @@ class TransitAccountInvoice(models.Model):
                 }
                 transitLine.create(commission_dict)
             if folder.transit_id.amount_purchased:
-                honoraire = self.env.ref('transit_invoice.view_prestation_transit_changed')
+                honoraire = self.env.ref('inov_transit.view_prestation_transit_changed')
                 if honoraire.product_id.id:
                     account_id = self.fiscal_position_id.map_account(
                         honoraire.product_id.property_account_income_id or honoraire.product_id.categ_id.property_account_income_categ_id).id
@@ -189,7 +189,7 @@ class TransitAccountInvoice(models.Model):
     def debour_line_move_line_get(self):
         res = []
         if self.service_ids:
-            product = self.env.ref('transit_invoice.product_product_debours')
+            product = self.env.ref('inov_transit.product_product_debours')
             account = product.product_tmpl_id._get_product_accounts()
             move_line_dict = {
                 'invl_id': self.id,

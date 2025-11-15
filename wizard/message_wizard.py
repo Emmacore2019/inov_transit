@@ -22,7 +22,7 @@ class PopupWizard(models.TransientModel):
             folder.write({'stage_id': nws_stage.id})
             folder.update(values)
         if not folder.num_rvc:
-            nws_stage=self.env.ref('transit_invoice.stages_variable_validate_rvc')
+            nws_stage=self.env.ref('inov_transit.stages_variable_validate_rvc')
             values = folder._onchange_stage_id_values(nws_stage.id)
             folder.write({'stage_id': nws_stage.id})
             folder.update(values)

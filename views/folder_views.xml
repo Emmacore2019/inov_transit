@@ -63,8 +63,10 @@
                         <field name="alerte" invisible="1"/>
                         <field name="number" invisible="1"/>
                         <field name="stages" invisible="1"/>
+                         <field name="current_user" invisible="1" />
                         <button string="Changer d'Etape" type="object" name="action_validate_folder" class="oe_highlight"
                                 groups="inov_transit.group_transit_user,inov_transit.group_acconage_manager,inov_transit.group_shipping_manager"/>
+                        <button name="mark_as_done" type="object" string="Fait" invisible="current_user != True" class="oe_highlight" />
                         <button string="Planifier" type="object" name="activity_scheduler"
                                 groups="inov_transit.group_transit_manager,inov_transit.group_acconage_manager,inov_transit.group_shipping_manager"/>
                         <field class="badge badge-warning" name="stage_id" domain="[('stages', '=', stages)]" readonly="1"/>
@@ -92,6 +94,50 @@
 
                     <sheet>
                         <div class="oe_button_box" name="button_box">
+                            <!-- Boutons statistiques analytiques -->
+                            <button class="oe_stat_button" type="object" name="action_view_analytic_lines" icon="fa-line-chart" invisible="debit == 0">
+                                <div class="o_field_widget o_stat_info">
+                                    <span class="o_stat_value">
+                                        <field name="debit" widget="monetary"/>
+                                    </span>
+                                    <span class="o_stat_text">Débit</span>
+                                </div>
+                            </button>
+                            <button class="oe_stat_button" type="object" name="action_view_analytic_lines" icon="fa-line-chart" invisible="credit == 0">
+                                <div class="o_field_widget o_stat_info">
+                                    <span class="o_stat_value">
+                                        <field name="credit" widget="monetary"/>
+                                    </span>
+                                    <span class="o_stat_text">Crédit</span>
+                                </div>
+                            </button>
+                            <button class="oe_stat_button" type="object" name="action_view_analytic_lines" icon="fa-usd" invisible="balance == 0">
+                                <div class="o_field_widget o_stat_info">
+                                    <span class="o_stat_value">
+                                        <field name="balance" widget="monetary"/>
+                                    </span>
+                                    <span class="o_stat_text">Solde</span>
+                                </div>
+                            </button>
+                            
+                            <button class="oe_stat_button" type="object" name="action_view_customer_invoices" icon="fa-pencil-square-o" invisible="customer_invoice_count == 0">
+                                <div class="o_field_widget o_stat_info">
+                                    <span class="o_stat_value">
+                                        <field name="customer_invoice_count"/>
+                                    </span>
+                                    <span class="o_stat_text">Factures clients</span>
+                                </div>
+                            </button>
+                            <button class="oe_stat_button" type="object" name="action_view_vendor_bills" icon="fa-file-text-o" invisible="vendor_bill_count == 0">
+                                <div class="o_field_widget o_stat_info">
+                                    <span class="o_stat_value">
+                                        <field name="vendor_bill_count"/>
+                                    </span>
+                                    <span class="o_stat_text">Factures fournisseurs</span>
+                                </div>
+                            </button>
+                          
+                            
                             <button name="toggle_active" type="object" class="oe_stat_button" icon="fa-archive">
                                 <field name="active" widget="boolean_button" options='{"terminology": "archive"}'/>
                             </button>
@@ -212,7 +258,7 @@
                                     <group string="Completed">
                                         <field name="checklist_progress" widget="percentpie"/>
                                     </group>
-                                    <field name="task_checklist">
+                                    <field name="task_checklist" readonly="1">
                                         <tree string="Taches">
                                             <field name="name"/>
                                             <field name="responsible_id"/>
@@ -237,7 +283,34 @@
                                         <field name="date_delivered"/>
                                         <field name="date_remove"/>
                                         <field name="date_return"/>
-                                        <field name="transit_id" invisible="1"/>
+                                        <field name="transit_id" column_invisible="1"/>
+                                    </tree>
+                                </field>
+                            </page>
+                            
+                            <!-- Onglets pour les revenus et charges -->
+                            <page name="revenue_lines" string="Revenus" groups="analytic.group_analytic_accounting">
+                                <field name="revenue_line_ids" readonly="1">
+                                    <tree string="Lignes de Revenus" decoration-success="1">
+                                        <field name="date"/>
+                                        <field name="name"/>
+                                        <field name="account_id"/>
+                                        <field name="partner_id"/>
+                                        <field name="amount" sum="Total Revenus"/>
+                                        <field name="currency_id" invisible="1"/>
+                                    </tree>
+                                </field>
+                            </page>
+                            
+                            <page name="expense_lines" string="Charges" groups="analytic.group_analytic_accounting">
+                                <field name="expense_line_ids" readonly="1">
+                                    <tree string="Lignes de Charges" decoration-danger="1">
+                                        <field name="date"/>
+                                        <field name="name"/>
+                                        <field name="account_id"/>
+                                        <field name="partner_id"/>
+                                        <field name="amount" sum="Total Charges"/>
+                                        <field name="currency_id" invisible="1"/>
                                     </tree>
                                 </field>
                             </page>
@@ -252,6 +325,27 @@
                 </form>
             </field>
         </record>
+
+        <record id="view_shipping_form" model="ir.ui.view">
+          <field name="name">view.shiping.form</field>
+          <field name="model">folder.transit</field>
+          <field name="inherit_id" ref="inov_transit.transit_folder_form_form" />
+          <field name="arch" type="xml">
+            <xpath expr="//field[@name='checklist_progress']" position="after">
+              <!-- Les champs analytiques sont maintenant hérités du mixin -->
+              <field name="analytic_distribution" groups="analytic.group_analytic_accounting" widget="analytic_distribution"/>
+              <field name="analytic_precision" invisible="1"/>
+            </xpath>
+            <xpath expr="//field[@name='stage_id']" position="after">
+                 
+                  <field name="is_scheduled" invisible="1" />
+              </xpath>
+
+              <xpath expr="//button[@name='activity_scheduler']" position="replace">
+                  <button name="activity_scheduler" type="object" string="Planifier" invisible="is_scheduled != False"/>
+              </xpath>
+          </field>
+      </record>
         <record id="view_transit_folder_filter" model="ir.ui.view">
             <field name="name">transit.folder.filter.select</field>
             <field name="model">folder.transit</field>
@@ -264,6 +358,7 @@
                     <field name="num_rvc"/>
                     <field name="num_brd"/>
                     <field name="customer_id"/>
+                     <field name="activity_user_id"/>
                     <filter string="Mes Dossiers" domain="[('user_id','=',uid)]" name="my_transit_folders_filter"/>
                     <filter string="Dossiers Transit" domain="[('stages','=','transit')]" name="my_transit_folders_transit"/>
                     <filter string="Dossiers Acconage" domain="[('stages','=','accone')]" name="my_transit_folders_acconage"/>
@@ -271,7 +366,7 @@
                     <separator/>
                     <filter string="Unread Messages" name="message_needaction" domain="[('message_needaction','=',True)]"/>
                     <separator/>
-                    <filter string="Mes Dossiers" name="activities_my" domain="[('user_id', '=', uid)]"/>
+                    <filter string="Mes Dossiers" name="activities_my" domain="[('activity_user_id', '=', uid)]"/>
                     <separator/>
 <!--                    <filter string="Dossier en retard" name="activities_overdue" domain="[('alerte', '=', 'overdue')]" help="Afficher tous les dossiers dont la date de prochaine action est antérieure à aujourd'hui"/>-->
 <!--                    <filter string="Dossier en alerte" name="activities_today" domain="[('alerte', '=', 'danger')]" help="Afficher tous les dossiers qui nécessitent une attention immédiate"/>-->
@@ -292,9 +387,17 @@
             <field name="model">folder.transit</field>
             <field name="priority" eval="1"/>
             <field name="arch" type="xml">
-                <kanban default_group_by="stage_id" class="o_kanban_small_column o_opportunity_kanban" quick_create="false" edit="false" delete="false" archivable="false">
+                <kanban default_group_by="stage_id" 
+                        class="o_kanban_small_column o_opportunity_kanban" 
+                        quick_create="true" 
+                        sample="1"
+                        can_open="1"
+                        archivable="false">
+                    
+                    <!-- Champs nécessaires pour le fonctionnement kanban -->
                     <field name="name"/>
                     <field name="num_ot"/>
+                    <field name="stages"/>
                     <field name="num_brd"/>
                     <field name="stage_id"/>
                     <field name="color"/>
@@ -304,7 +407,7 @@
                     <field name="alerte"/>
                     <field name="kanban_state"/>
                     <field name="activity_date_deadline"/>
-                    <field name="amount_purchased"/>
+                    <field name="activity_user_id"/>
                     <field name="message_needaction_counter"/>
                     <field name="activity_summary"/>
                     <field name="active"/>
@@ -313,35 +416,153 @@
                     <field name="priority"/>
                     <field name="activity_state"/>
                     <field name="activity_ids"/>
-                    <progressbar field="activity_state" colors='{"planned": "success", "today": "warning", "overdue": "danger"}' sum_field="amount_purchased" help="This bar allows to filter the mails based on scheduled activities."/>
+                    
+                    <!-- Barre de progression sur les colonnes -->
+                    <progressbar field="activity_state" colors='{"planned": "success", "today": "warning", "overdue": "danger"}'>
+                        <field name="activity_state"/>
+                    </progressbar>
+                    
                     <templates>
                         <t t-name="kanban-box">
-                            <div t-attf-class="oe_kanban_card oe_kanban_global_click">
-                                <div class="o_kanban_record_top">
-                                    <div class="o_kanban_record_headings">
-                                        <strong class="o_kanban_record_title"><span t-if="record.customer_id.value"><field name="customer_id"/></span></strong>
-                                        <strong><field name="amount_purchased" widget="monetary"/></strong>
+                            <div t-attf-class="oe_kanban_color_{{record.color.raw_value}} oe_kanban_card oe_kanban_global_click o_kanban_record">
+                                <div class="oe_kanban_content">
+                                    <!-- En-tête avec nom et menu -->
+                                    <div class="o_kanban_record_top mb-2">
+                                        <div class="o_kanban_record_headings d-flex justify-content-between align-items-start">
+                                            <strong class="o_kanban_record_title fs-5">
+                                                <field name="name"/>
+                                            </strong>
+                                            <!-- Alerte repositionnée en haut à droite -->
+                                            <div t-if="record.alerte.value and record.alerte.value != 'open'">
+                                                <!-- Alerte critique (overdue) -->
+                                                <span t-if="record.alerte.value == 'overdue'" class="badge bg-danger ms-2">
+                                                    <i class="fa fa-exclamation-triangle me-1"/>
+                                                    Dépassé
+                                                </span>
+                                                <!-- Alerte warning (danger) -->
+                                                <span t-elif="record.alerte.value == 'danger'" class="badge bg-warning ms-2">
+                                                    <i class="fa fa-clock-o me-1"/>
+                                                    Urgent
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <!-- Menu dropdown -->
+                                        <div class="o_dropdown_kanban dropdown">
+                                            <a class="dropdown-toggle o-no-caret btn btn-sm" role="button" data-bs-toggle="dropdown" aria-label="Dropdown" href="#">
+                                                <span class="fa fa-ellipsis-v"/>
+                                            </a>
+                                            <div class="dropdown-menu" role="menu">
+                                                <a t-if="widget.editable" role="menuitem" type="edit" class="dropdown-item">
+                                                    <i class="fa fa-pencil"/> Modifier
+                                                </a>
+                                                <a t-if="widget.deletable" role="menuitem" type="delete" class="dropdown-item">
+                                                    <i class="fa fa-trash"/> Supprimer
+                                                </a>
+                                                <div class="dropdown-divider"/>
+                                                <div class="o_kanban_colorpicker" data-field="color"/>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                                <div>
-                                    <li>
-                                        <field name="checklist_progress" widget="gauge" style="width:50px;height:30px;cursor:pointer;" options="{'max_field': 'max_rate'}">
-                                            Progression du Dossier
-                                        </field>
-                                    </li>
-                                    N° OT <span t-if="record.num_ot.value"><field name="num_ot"/></span>
-                                    <span t-else=""> -- -- -- </span>
-                                    N° BL <span t-if="record.num_brd.value"><field name="num_brd"/></span>
-                                    <span t-else=""> -- -- -- </span>
-                                </div>
-                                <div class="o_kanban_record_bottom">
-                                    <div class="oe_kanban_bottom_left">
-                                        <span><t t-esc="record.name.value"/></span>
+                                    
+                                    <!-- Informations principales -->
+                                    <div class="o_kanban_record_body mb-3">
+                                        <div class="o_kanban_record_subtitle text-primary fw-bold mb-2">
+                                            <i class="fa fa-user-circle me-1"/>
+                                            <field name="customer_id"/>
+                                        </div>
+                                        
+                                        <!-- Carte d'information avec badge -->
+                                        <div class="card border-0 bg-light mb-2">
+                                            <div class="card-body p-2">
+                                                <div class="row g-2">
+                                                    <div class="col-6">
+                                                        <div class="d-flex align-items-center">
+                                                            <span class="badge bg-info me-1">OT</span>
+                                                            <small t-if="record.num_ot.value" class="fw-bold">
+                                                                <field name="num_ot"/>
+                                                            </small>
+                                                            <small t-else="" class="text-muted">Non défini</small>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <div class="d-flex align-items-center">
+                                                            <span class="badge bg-warning me-1">BL</span>
+                                                            <small t-if="record.num_brd.value" class="fw-bold">
+                                                                <field name="num_brd"/>
+                                                            </small>
+                                                            <small t-else="" class="text-muted">Non défini</small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Date d'arrivée avec style -->
+                                        <div t-if="record.date_arrival.value" class="d-flex align-items-center mb-2">
+                                            <span class="badge bg-primary me-2">
+                                                <i class="fa fa-calendar"/>
+                                            </span>
+                                            <small class="text-muted">
+                                                Arrivée: <strong><field name="date_arrival"/></strong>
+                                            </small>
+                                        </div>
+                                        
+                                        <!-- Progress bar améliorée pour checklist -->
+                                        <div t-if="record.checklist_progress.value" class="mb-2">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <small class="text-muted">Progression</small>
+                                                <small class="fw-bold text-primary">
+                                                    <field name="checklist_progress"/>%
+                                                </small>
+                                            </div>
+                                            <div class="progress" style="height: 6px;">
+                                                <div class="progress-bar bg-success" 
+                                                     t-attf-style="width: {{record.checklist_progress.value || 0}}%">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
                                     </div>
-                                    <div class="oe_kanban_bottom_right">
-                                        <span class="float-right text-right">
-                                            ETA: <field name="date_arrival" widget="label_selection" options="{'classes': {'open': 'default', 'overdue': 'danger', 'danger': 'warning'}}"/>
-                                        </span>
+                                    
+                                    <!-- Pied avec priorité, activités et utilisateur -->
+                                    <div class="o_kanban_record_bottom d-flex justify-content-between align-items-center pt-2 border-top">
+                                        <div class="d-flex align-items-center">
+                                            <!-- Priorité -->
+                                            <field name="priority" widget="priority" class="me-2"/>
+                                            
+                                            <!-- Indicateur d'état kanban avec couleurs -->
+                                            <div t-if="record.kanban_state.raw_value === 'blocked'" class="me-2">
+                                                <span class="badge bg-danger" title="Bloqué">
+                                                    <i class="fa fa-ban"/>
+                                                </span>
+                                            </div>
+                                            <div t-if="record.kanban_state.raw_value === 'done'" class="me-2">
+                                                <span class="badge bg-success" title="Terminé">
+                                                    <i class="fa fa-check"/>
+                                                </span>
+                                            </div>
+                                            
+                                            <!-- Widget d'activités -->
+                                            <div class="me-2">
+                                                <field name="activity_ids" widget="kanban_activity"/>
+                                            </div>
+                                            
+                                            <!-- Messages non lus -->
+                                            <div t-if="record.message_needaction_counter.raw_value" class="me-2">
+                                                <span class="badge bg-info" title="Messages non lus">
+                                                    <i class="fa fa-envelope"/>
+                                                    <field name="message_needaction_counter"/>
+                                                </span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div>
+                                            <!-- Avatar utilisateur assigné amélioré -->
+                                            <field name="user_id" 
+                                                   widget="many2one_avatar_user" 
+                                                   domain="[('share', '=', False)]"
+                                                   options="{'display_avatar_name': True}"/>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -350,6 +571,7 @@
                 </kanban>
             </field>
         </record>
+         
      <record id="action_transit_folder" model="ir.actions.act_window">
         <field name="name">Ouverture du Dossier Transit</field>
         <field name="type">ir.actions.act_window</field>
@@ -359,6 +581,7 @@
         <field name="domain">[('stages','=','transit')]</field>
         <field name="context">{
           'search_default_my_transit_folders_transit':1,
+          'search_default_my_activities_my':1,
           'default_stages':'transit'
 
         }</field>
@@ -386,6 +609,7 @@
         <field name="domain">[('stages','=','accone')]</field>
         <field name="context">{
           'search_default_my_transit_folders_acconage':1,
+             'search_default_my_activities_my':1,
           'default_stages':'accone'
 
         }</field>
@@ -750,12 +974,20 @@
   <record id="action_activity_transit_form" model="ir.actions.act_window">
     <field name="name">Activite Dedouanement</field>
     <field name="res_model">folder.transit</field>
-    <field name="view_mode">activity</field>
+    <field name="view_mode">kanban</field>
     <field name="view_id" ref="view_transit_folder_filter"/>
     <field name="context">{
-          'search_default_my_transit_folders_transit':1
+          'search_default_my_transit_folders_transit':1,
+          'search_default_my_activities_my':1,
+           'default_stages':'transit'
         }</field>
   </record>
+  <!-- <record id="action_activity_transit_form" model="ir.actions.act_window.view">
+            <field name="sequence" eval="2"/>
+            <field name="view_mode">kanban</field>
+            <field name="view_id" ref="transit_folder_kanban_view_bca"/>
+            <field name="act_window_id" ref="action_all_folder"/>
+    </record> -->
 
     <menuitem
             name="Tableau de Suivi Dossier Dedouanement"

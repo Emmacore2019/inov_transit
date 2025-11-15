@@ -6,31 +6,31 @@
             <field name="name">1-Ordre de transit</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_folder" model="mail.activity.type">
             <field name="name">2-Ouverture de dossier</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_tracking_1" model="mail.activity.type">
             <field name="name">3-Tracking 1</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_etude" model="mail.activity.type">
             <field name="name">4-Etude saisie de la déclaration provisoire</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_transm" model="mail.activity.type">
             <field name="name">5-Transmission provisoire au client</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
 
 
@@ -38,204 +38,204 @@
             <field name="name">6-Tracking 2</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_verif" model="mail.activity.type">
             <field name="name">7-Vérification et stockage serveur</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_eforce" model="mail.activity.type">
             <field name="name">8-Traitement E-force</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
 
         <record id="mail_act_rh_courrier_n_tracking" model="mail.activity.type">
             <field name="name">9-Tracking n !</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_validation" model="mail.activity.type">
             <field name="name">10-Validation</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
        <record id="mail_act_rh_courrier_liquidation" model="mail.activity.type">
             <field name="name">11-Liquidation</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_virement" model="mail.activity.type">
             <field name="name">12-Ordre de virement</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
 
         <record id="mail_act_rh_courrier_douanes" model="mail.activity.type">
             <field name="name">13-Paiement droits de douanes</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_retrait_douane" model="mail.activity.type">
             <field name="name">14-Retrait quittance droits de douane</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_besc" model="mail.activity.type">
             <field name="name">15-Authentification BESC</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_enlevement" model="mail.activity.type">
             <field name="name">16-Transmission dossier pour enlèvement</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_Bl" model="mail.activity.type">
             <field name="name">17-Retrait BL original</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
 
         <record id="mail_act_rh_courrier_bae" model="mail.activity.type">
             <field name="name">18-BAE Douane</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_invoice_armateur" model="mail.activity.type">
             <field name="name">19-Demande facture armateur</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
          <record id="mail_act_rh_courrier_invoice_paiement" model="mail.activity.type">
             <field name="name">20-Paiement facture armateur</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
          <record id="mail_act_rh_courrier_invoice_rtc" model="mail.activity.type">
             <field name="name">21-Demande de facture RTC en ligne</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_obtention_pad" model="mail.activity.type">
             <field name="name">22-Obtention BAD Armateur</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_invoice_armature_2" model="mail.activity.type">
             <field name="name">23-Paiement facture RTC</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_auto_pad" model="mail.activity.type">
             <field name="name">24-Autorisation enlèvement PAD</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_deliverd_accone" model="mail.activity.type">
             <field name="name">25-Bon de livraison </field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_sydonia" model="mail.activity.type">
             <field name="name">26-Code CAMCIS</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_sortie" model="mail.activity.type">
             <field name="name">27-Constatation de sortie</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_delivered_ticket" model="mail.activity.type">
             <field name="name">28- Demande de Ticket de livraison en ligne</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
 
         <record id="mail_act_rh_courrier_intervention" model="mail.activity.type">
             <field name="name">29-Enlèvement</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_dispatch" model="mail.activity.type">
             <field name="name">30-Depot TC Client</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
          <record id="mail_act_rh_courrier_retrieve" model="mail.activity.type">
             <field name="name">31-Retrait TC Client</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_tcs_vide" model="mail.activity.type">
             <field name="name">32-Retour Tcs vides</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_interchanges" model="mail.activity.type">
             <field name="name">33-Récupération des interchanges</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_tcs_detention" model="mail.activity.type">
             <field name="name">34-Facturation et paiement détention Tcs</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_retrait_caution" model="mail.activity.type">
             <field name="name">35-Retrait des cautions</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
         <record id="mail_act_rh_courrier_depense" model="mail.activity.type">
             <field name="name">36-Rapport des dépenses</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
 
         <record id="mail_act_rh_courrier_invoice_had" model="mail.activity.type">
             <field name="name">37-Facturation HAD et cautions</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
           <record id="mail_act_rh_courrier_archived" model="mail.activity.type">
             <field name="name">38-Archives</field>
             <field name="icon">fa-task</field>
             <field name="stages">transit</field>
-<!--            <field name="res_model_id" ref="transit_invoice.model_folder_transit"/>-->
+<!--            <field name="res_model_id" ref="inov_transit.model_folder_transit"/>-->
         </record>
 
 

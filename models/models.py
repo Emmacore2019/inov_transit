@@ -3,9 +3,9 @@
 # from odoo import models, fields, api
 
 
-# class transit_invoice(models.Model):
-#     _name = 'transit_invoice.transit_invoice'
-#     _description = 'transit_invoice.transit_invoice'
+# class inov_transit(models.Model):
+#     _name = 'inov_transit.inov_transit'
+#     _description = 'inov_transit.inov_transit'
 
 #     name = fields.Char()
 #     value = fields.Integer()

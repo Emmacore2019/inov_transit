@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Template email pour le rapport d'alertes -->
+        <record id="email_template_alerte_report" model="mail.template">
+            <field name="name">Rapport d'alertes ETA</field>
+            <field name="model_id" ref="model_folder_transit"/>
+            <field name="subject">🚨 Rapport d'alertes ETA - ${object.env.context.get('overdue_count', 0)} en retard, ${object.env.context.get('danger_count', 0)} en alerte</field>
+            <field name="body_html" type="html">
+                <div style="font-family: Arial, sans-serif; max-width: 1000px; margin: 0 auto;">
+                    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <h2 style="color: #dc3545; margin-top: 0;">
+                            🚨 Rapport d'alertes ETA - ${datetime.datetime.now().strftime('%d/%m/%Y')}
+                        </h2>
+                        <p style="font-size: 16px; color: #6c757d;">
+                            Mise à jour automatique des états d'avancement des dossiers
+                        </p>
+                    </div>
+                    
+                    <!-- Statistiques rapides -->
+                    <div style="background-color: #e9ecef; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                        <h3 style="margin-top: 0;">📊 Résumé</h3>
+                        <div style="display: flex; justify-content: space-around; text-align: center;">
+                            <div>
+                                <div style="font-size: 24px; font-weight: bold; color: #dc3545;">${object.env.context.get('overdue_count', 0)}</div>
+                                <div>En retard</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 24px; font-weight: bold; color: #ffc107;">${object.env.context.get('danger_count', 0)}</div>
+                                <div>En alerte</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 24px; font-weight: bold; color: #28a745;">${object.env.context.get('on_time_count', 0)}</div>
+                                <div>À jour</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tableau des dossiers en retard -->
+                    % if object.env.context.get('overdue_folders'):
+                    <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                        <h3 style="color: #721c24; margin-top: 0;">
+                            🚨 Dossiers en retard (${object.env.context.get('overdue_count', 0)})
+                        </h3>
+                        <p style="color: #721c24; margin-bottom: 15px;">
+                            Les dossiers suivants ont dépassé leur ETA et nécessitent une action immédiate :
+                        </p>
+                        <table style="width: 100%; border-collapse: collapse; background-color: white;">
+                            <thead style="background-color: #dc3545; color: white;">
+                                <tr>
+                                    <th style="padding: 12px; text-align: left; border: 1px solid #dee2e6;">N° Dossier</th>
+                                    <th style="padding: 12px; text-align: left; border: 1px solid #dee2e6;">Client</th>
+                                    <th style="padding: 12px; text-align: center; border: 1px solid #dee2e6;">ETA</th>
+                                    <th style="padding: 12px; text-align: center; border: 1px solid #dee2e6;">Retard (jours)</th>
+                                    <th style="padding: 12px; text-align: left; border: 1px solid #dee2e6;">Responsable</th>
+                                    <th style="padding: 12px; text-align: left; border: 1px solid #dee2e6;">N° B/L</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                % for folder in object.env.context.get('overdue_folders', []):
+                                <tr style="border-bottom: 1px solid #dee2e6;">
+                                    <td style="padding: 10px; border: 1px solid #dee2e6;"><strong>${folder.name}</strong></td>
+                                    <td style="padding: 10px; border: 1px solid #dee2e6;">${folder.customer_id.name or 'N/A'}</td>
+                                    <td style="padding: 10px; text-align: center; border: 1px solid #dee2e6;">${folder.date_arrival.strftime('%d/%m/%Y') if folder.date_arrival else 'N/A'}</td>
+                                    <td style="padding: 10px; text-align: center; color: #dc3545; font-weight: bold; border: 1px solid #dee2e6;">
+                                        ${(ctx['current_date'] - folder.date_arrival).days if folder.date_arrival else 0}
+                                    </td>
+                                    <td style="padding: 10px; border: 1px solid #dee2e6;">${folder.user_id.name or 'Non assigné'}</td>
+                                    <td style="padding: 10px; border: 1px solid #dee2e6;">${folder.num_brd or 'N/A'}</td>
+                                </tr>
+                                % endfor
+                            </tbody>
+                        </table>
+                    </div>
+                    % endif
+
+                    <!-- Tableau des dossiers en alerte -->
+                    % if object.env.context.get('danger_folders'):
+                    <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                        <h3 style="color: #856404; margin-top: 0;">
+                            ⚠️ Dossiers en alerte (${object.env.context.get('danger_count', 0)})
+                        </h3>
+                        <p style="color: #856404; margin-bottom: 15px;">
+                            Les dossiers suivants arrivent à échéance dans les 3 jours :
+                        </p>
+                        <table style="width: 100%; border-collapse: collapse; background-color: white;">
+                            <thead style="background-color: #ffc107; color: #212529;">
+                                <tr>
+                                    <th style="padding: 12px; text-align: left; border: 1px solid #dee2e6;">N° Dossier</th>
+                                    <th style="padding: 12px; text-align: left; border: 1px solid #dee2e6;">Client</th>
+                                    <th style="padding: 12px; text-align: center; border: 1px solid #dee2e6;">ETA</th>
+                                    <th style="padding: 12px; text-align: center; border: 1px solid #dee2e6;">Jours restants</th>
+                                    <th style="padding: 12px; text-align: left; border: 1px solid #dee2e6;">Responsable</th>
+                                    <th style="padding: 12px; text-align: left; border: 1px solid #dee2e6;">N° B/L</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                % for folder in object.env.context.get('danger_folders', []):
+                                <tr style="border-bottom: 1px solid #dee2e6;">
+                                    <td style="padding: 10px; border: 1px solid #dee2e6;"><strong>${folder.name}</strong></td>
+                                    <td style="padding: 10px; border: 1px solid #dee2e6;">${folder.customer_id.name or 'N/A'}</td>
+                                    <td style="padding: 10px; text-align: center; border: 1px solid #dee2e6;">${folder.date_arrival.strftime('%d/%m/%Y') if folder.date_arrival else 'N/A'}</td>
+                                    <td style="padding: 10px; text-align: center; color: #856404; font-weight: bold; border: 1px solid #dee2e6;">
+                                        ${(folder.date_arrival - ctx['current_date']).days if folder.date_arrival else 0}
+                                    </td>
+                                    <td style="padding: 10px; border: 1px solid #dee2e6;">${folder.user_id.name or 'Non assigné'}</td>
+                                    <td style="padding: 10px; border: 1px solid #dee2e6;">${folder.num_brd or 'N/A'}</td>
+                                </tr>
+                                % endfor
+                            </tbody>
+                        </table>
+                    </div>
+                    % endif
+
+                    <!-- Message si pas d'alertes -->
+                    % if not object.env.context.get('overdue_folders') and not object.env.context.get('danger_folders'):
+                    <div style="background-color: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                        <h3 style="color: #155724; margin-top: 0;">
+                            ✅ Aucune alerte
+                        </h3>
+                        <p style="color: #155724; margin-bottom: 0;">
+                            Excellent ! Tous les dossiers sont à jour. Aucune action immédiate n'est requise.
+                        </p>
+                    </div>
+                    % endif
+                    
+                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; font-size: 12px; color: #6c757d;">
+                        <p style="margin: 0;">
+                            📧 Ce rapport a été généré automatiquement le ${datetime.datetime.now().strftime('%d/%m/%Y à %H:%M')}.<br/>
+                            🔄 Prochaine mise à jour prévue demain à la même heure.<br/>
+                            📋 Consultez le système pour plus de détails sur chaque dossier.
+                        </p>
+                    </div>
+                </div>
+            </field>
+            <field name="lang">${object.user_id.lang}</field>
+            <field name="auto_delete">True</field>
+        </record>
+
+        <!-- Action planifiée améliorée -->
+        <record id="ir_cron_update_alertes_with_email" model="ir.cron">
+            <field name="name">Rapport quotidien d'alertes ETA avec email</field>
+            <field name="model_id" ref="model_folder_transit"/>
+            <field name="state">code</field>
+            <field name="code">
+# Mise à jour des alertes avec envoi d'email automatique
+model.action_update_all_alertes()
+            </field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="numbercall">-1</field>
+            <field name="active">True</field>
+            <field name="doall">True</field>
+            <field name="nextcall" eval="(DateTime.now() + timedelta(days=1)).replace(hour=8, minute=0, second=0)"/>
+        </record>
+
+        <!-- Configuration des paramètres système -->
+        <record id="config_alerte_email_enabled" model="ir.config_parameter">
+            <field name="key">inov_transit.alerte_email_enabled</field>
+            <field name="value">True</field>
+        </record>
+
+        <record id="config_alerte_email_recipients" model="ir.config_parameter">
+            <field name="key">inov_transit.alerte_email_recipients</field>
+            <field name="value">managers</field> <!-- managers, all_users, or email addresses -->
+        </record>
+
+    </data>
+</odoo>

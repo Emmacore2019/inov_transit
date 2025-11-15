@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Types d'activités pour les alertes -->
+        <record id="mail_activity_alerte_danger" model="mail.activity.type">
+            <field name="name">Alerte ETA - Attention</field>
+            <field name="summary">Dossier en phase d'alerte</field>
+            <field name="res_model">folder.transit</field>
+            <field name="category">default</field>
+            <field name="icon">fa-exclamation-triangle</field>
+            <field name="decoration_type">warning</field>
+            <field name="delay_count">1</field>
+            <field name="delay_unit">days</field>
+            <field name="stages">transit</field>
+        </record>
+
+        <record id="mail_activity_alerte_overdue" model="mail.activity.type">
+            <field name="name">Alerte ETA - Urgent</field>
+            <field name="summary">Dossier en retard</field>
+            <field name="res_model">folder.transit</field>
+            <field name="category">default</field>
+            <field name="icon">fa-times-circle</field>
+            <field name="decoration_type">danger</field>
+            <field name="delay_count">0</field>
+            <field name="delay_unit">days</field>
+            <field name="stages">transit</field>
+        </record>
+
+        <!-- Action serveur pour mise à jour des alertes -->
+        <record id="action_server_update_alertes" model="ir.actions.server">
+            <field name="name">Mettre à jour les alertes ETA</field>
+            <field name="model_id" ref="model_folder_transit"/>
+            <field name="state">code</field>
+            <field name="code">
+result = model.action_update_all_alertes()
+            </field>
+        </record>
+
+        <!-- Action automatique quotidienne pour les alertes -->
+        <record id="ir_cron_update_alertes" model="ir.cron">
+            <field name="name">Mise à jour quotidienne des alertes ETA</field>
+            <field name="model_id" ref="model_folder_transit"/>
+            <field name="state">code</field>
+            <field name="code">
+model.action_update_all_alertes()
+            </field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="numbercall">-1</field>
+            <field name="active">True</field>
+            <field name="doall">True</field>
+        </record>
+
+        <!-- Menu pour l'action serveur -->
+        <record id="menu_action_update_alertes" model="ir.ui.menu">
+            <field name="name">Mettre à jour les alertes</field>
+            <field name="parent_id" ref="inov_transit.menu_configuration_id"/>
+            <field name="action" ref="action_server_update_alertes"/>
+            <field name="sequence">200</field>
+            <field name="groups_id" eval="[(4, ref('inov_transit.group_transit_manager'))]"/>
+        </record>
+
+    </data>
+</odoo>

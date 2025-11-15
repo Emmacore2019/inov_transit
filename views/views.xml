@@ -2,9 +2,9 @@
   <data>
     <!-- explicit list view definition -->
 <!--
-    <record model="ir.ui.view" id="transit_invoice.list">
-      <field name="name">transit_invoice list</field>
-      <field name="model">transit_invoice.transit_invoice</field>
+    <record model="ir.ui.view" id="inov_transit.list">
+      <field name="name">inov_transit list</field>
+      <field name="model">inov_transit.inov_transit</field>
       <field name="arch" type="xml">
         <tree>
           <field name="name"/>
@@ -17,18 +17,18 @@
 
     <!-- actions opening views on models -->
 <!--
-    <record model="ir.actions.act_window" id="transit_invoice.action_window">
-      <field name="name">transit_invoice window</field>
-      <field name="res_model">transit_invoice.transit_invoice</field>
+    <record model="ir.actions.act_window" id="inov_transit.action_window">
+      <field name="name">inov_transit window</field>
+      <field name="res_model">inov_transit.inov_transit</field>
       <field name="view_mode">tree,form</field>
     </record>
 -->
 
     <!-- server action to the one above -->
 <!--
-    <record model="ir.actions.server" id="transit_invoice.action_server">
-      <field name="name">transit_invoice server</field>
-      <field name="model_id" ref="model_transit_invoice_transit_invoice"/>
+    <record model="ir.actions.server" id="inov_transit.action_server">
+      <field name="name">inov_transit server</field>
+      <field name="model_id" ref="model_inov_transit_inov_transit"/>
       <field name="state">code</field>
       <field name="code">
         action = {
@@ -42,19 +42,19 @@
 
     <!-- Top menu item -->
 <!--
-    <menuitem name="transit_invoice" id="transit_invoice.menu_root"/>
+    <menuitem name="inov_transit" id="inov_transit.menu_root"/>
 -->
     <!-- menu categories -->
 <!--
-    <menuitem name="Menu 1" id="transit_invoice.menu_1" parent="transit_invoice.menu_root"/>
-    <menuitem name="Menu 2" id="transit_invoice.menu_2" parent="transit_invoice.menu_root"/>
+    <menuitem name="Menu 1" id="inov_transit.menu_1" parent="inov_transit.menu_root"/>
+    <menuitem name="Menu 2" id="inov_transit.menu_2" parent="inov_transit.menu_root"/>
 -->
     <!-- actions -->
 <!--
-    <menuitem name="List" id="transit_invoice.menu_1_list" parent="transit_invoice.menu_1"
-              action="transit_invoice.action_window"/>
-    <menuitem name="Server to list" id="transit_invoice" parent="transit_invoice.menu_2"
-              action="transit_invoice.action_server"/>
+    <menuitem name="List" id="inov_transit.menu_1_list" parent="inov_transit.menu_1"
+              action="inov_transit.action_window"/>
+    <menuitem name="Server to list" id="inov_transit" parent="inov_transit.menu_2"
+              action="inov_transit.action_server"/>
 -->
   </data>
 </odoo>

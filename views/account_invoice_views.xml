@@ -1,67 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data>
-
-        <record id="account_invoice_folder_form" model="ir.ui.view">
-            <field name="name">account.invoice.folder.form</field>
-            <field name="model">account.move</field>
-            <field name="inherit_id" ref="account.view_move_form"/>
-            <field name="arch" type="xml">
-                <xpath expr="//button[@name='action_invoice_sent']" position="replace">
-                    <button name="invoice_print" string="Impression" type="object" class="oe_highlight"
-                            groups="base.group_user"/>
-                </xpath>
-                <xpath expr="//field[@name='payment_id']" position="after">
-                    <field name="folder_type"/>
-                    <field name="transit_id" domain="['|',('customer_id', '=',partner_id),('stages','=',folder_type)]"
-                           options="{'no_create': True, 'no_open': True}"/>
-                    <field name="name"/>
-                </xpath>
-                <xpath expr="//field[@name='invoice_date_due']" position="after">
-                    <field name="date_op"/>
-                </xpath>
-                <!--               <xpath expr="//field[@name='number']" position="replace">-->
-                <!--                 <field name="number_d" required="1"/>-->
-                <!--               </xpath>-->
-                <xpath expr="//field[@name='invoice_line_ids']" position="before">
-                    <field name="service_ids" domain="[('transit_id', '=', transit_id)]" groups="base.group_user">
-                        <tree string="Service">
-                            <field name="ref_deb"/>
-                            <field name="product_id"/>
-                            <field name="amount_debour" sum="Total Service"/>
-                            <field name="transit_id" invisible="1"/>
-                        </tree>
-                    </field>
-                </xpath>
-                <xpath expr="//field[@name='amount_total']" position="after">
-                    <button name="compute_variable_expense"
-                            string="(calcul charges variables)" type="object" class="oe_link"
-                            groups="base.group_user"/>
-                </xpath>
-                <xpath expr="//tree/field[@name='quantity']" position="after">
-                    <field name="caution"/>
-                </xpath>
-            </field>
-        </record>
-
-        <!--        <record id="inherit_view_id_inherit_search" model="ir.ui.view">-->
-        <!--          <field name="name">account.invoice.view.form.inherit</field>-->
-        <!--          <field name="model">account.invoice</field>-->
-        <!--          <field name="inherit_id" ref="account.view_account_invoice_filter"/>-->
-        <!--          <field name="arch" type="xml">-->
-        <!--             <xpath expr="//filter[@name='late']" position="after">-->
-        <!--              <filter name="transit_shift" string="Transit" domain="[('folder_type','=','transit')]"/>-->
-        <!--              <filter name="transit_ship" string="Shipping" domain="[('folder_type', '=', 'ship')]"/>-->
-        <!--              <filter name="transit_accone" string="Acconage" domain="[('folder_type', '=', 'accone')]"/>-->
-        <!--             </xpath>-->
-        <!--          </field>-->
-        <!--        </record>-->
-
-
-        <!--
-    j'ai modifié la ligne "view_mode" en rentirant les vues suppeflues (calendrier, graph, pivot),
-     et aussi la ligne "domain" en remplaçant "type", par "move_type", de même pour la ligne " context "
--->
         <record id="action_invoice_transit_tree" model="ir.actions.act_window">
             <field name="name">Factures</field>
             <field name="res_model">account.move</field>

@@ -1,8 +1,11 @@
 from odoo import models, fields, api, SUPERUSER_ID, _
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError,ValidationError
 from odoo.tools import float_is_zero, float_compare, DEFAULT_SERVER_DATETIME_FORMAT
 
 from datetime import datetime, timedelta, date
+import logging
+
+_logger = logging.getLogger(__name__)
 
 AVAILABLE_PRIORITIES = [
     ('0', 'Low'),
@@ -14,19 +17,31 @@ AVAILABLE_PRIORITIES = [
 
 class TransitFolder(models.Model):
     _name = "folder.transit"
-    _inherit = ['mail.thread', 'mail.activity.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'analytic.mixin']
     _description = "Dossier de Transit"
     _order = "date_open desc"
 
 
-    @api.depends('task_checklist', 'len_task')
+    @api.depends('task_checklist', 'stages')
     def _get_checklist_progress(self):
         """:return the value for the check list progress"""
         for rec in self:
-            total_len = rec.len_task
+            # Calculer le nombre total de tâches pour cette étape
+            total_activities = rec.env['mail.activity.type'].search_count([('stages', '=', rec.stages)])
+            total_len = total_activities or rec.len_task or 1  # Éviter la division par zéro
+            
+            # Compter les tâches accomplies
             check_list_len = len(rec.task_checklist)
-            if total_len != 0:
-                rec.checklist_progress = (check_list_len * 100) / total_len
+            
+            # Calculer le pourcentage
+            rec.checklist_progress = (check_list_len * 100.0) / total_len
+
+    @api.onchange('stages')
+    def _onchange_stages_update_len_task(self):
+        """Met à jour len_task quand l'étape change"""
+        if self.stages:
+            total_activities = self.env['mail.activity.type'].search_count([('stages', '=', self.stages)])
+            self.len_task = total_activities
 
     @api.model
     def _default_currency(self):
@@ -45,40 +60,318 @@ class TransitFolder(models.Model):
         stage = self.env.context.get('default_stages')
         return self._stage_find(domain=[('number', '=', 10), ('stages', '=', stage)])[0]
 
-    # @api.depends('debour_ids')
-    # def _compute_service_count(self):
-    #     if self.debour_ids:
-    #         self.service_count = len(self.debour_ids)
-
+    @api.depends('debour_ids')
+    def _compute_service_count(self):
+        for record in self:
+            record.service_count = len(record.debour_ids) if record.debour_ids else 0
 
     @api.depends('order_ids')
     def get_total_order_ids_amount(self):
         self.amount_purchased = sum(a.chiffr_xaf_take for a in self.order_ids)
 
+    @api.depends('date_arrival')
     def compute_alerte_date(self):
         for record in self:
+            old_alerte = record.alerte
             if not record.date_arrival:
                 record.alerte = 'open'
-            elif record.number < 104 and record.date_arrival:
+            elif record.date_arrival:
                 date_today = datetime.today()
                 eta_date = datetime.strptime(record.date_arrival.strftime("%Y-%m-%d"), "%Y-%m-%d")
                 next_date = date_today + timedelta(days=3)
 
-                if eta_date < next_date:
+                if eta_date < date_today:
                     record.alerte = 'overdue'
-                elif eta_date == next_date:
+                elif eta_date <= next_date:
                     record.alerte = 'danger'
                 else:
                     record.alerte = 'open'
             else:
                 record.alerte = 'open'
+            
+            # Notification automatique si changement d'état
+            if old_alerte != record.alerte and record.id:
+                record._notify_alerte_change(old_alerte, record.alerte)
 
     def compute_deadline_date(self, date, duree):
         if not date:
-            return False
+            date = self.create_date
         date_today = datetime.strptime(date.strftime("%Y-%m-%d"), "%Y-%m-%d")
         next_date = date_today + timedelta(days=duree)
         return next_date.strftime("%Y-%m-%d")
+
+    def _notify_alerte_change(self, old_alerte, new_alerte):
+        """Notifie les changements d'état d'alerte"""
+        if not self.id or old_alerte == new_alerte:
+            return
+            
+        # Messages selon le changement d'état
+        messages = {
+            ('open', 'danger'): "⚠️ Attention : Le dossier {name} entre en phase d'alerte (ETA dans 3 jours ou moins)",
+            ('open', 'overdue'): "🚨 Urgent : Le dossier {name} est maintenant en retard (ETA dépassé)",
+            ('danger', 'overdue'): "🚨 Critique : Le dossier {name} est maintenant en retard (ETA dépassé)",
+            ('danger', 'open'): "✅ Le dossier {name} n'est plus en alerte",
+            ('overdue', 'open'): "✅ Le dossier {name} n'est plus en retard",
+            ('overdue', 'danger'): "⚠️ Le dossier {name} n'est plus en retard mais reste en alerte"
+        }
+        
+        message_key = (old_alerte, new_alerte)
+        if message_key in messages:
+            message = messages[message_key].format(name=self.name)
+            
+            # Notification interne
+            self.message_post(
+                body=message,
+                message_type='notification',
+                subtype_xmlid='mail.mt_note'
+            )
+            
+            # Programmer une activité si passage en alerte ou retard
+            if new_alerte in ['danger', 'overdue'] and old_alerte == 'open':
+                self._schedule_alerte_activity(new_alerte)
+
+    def _schedule_alerte_activity(self, alerte_type):
+        """Programme une activité selon le type d'alerte"""
+        if alerte_type == 'overdue':
+            activity_type = self.env.ref('inov_transit.mail_activity_alerte_overdue', False)
+            summary = f"🚨 URGENT - Dossier {self.name} en retard"
+            note = f"Le dossier {self.name} est en retard. L'ETA était le {self.date_arrival}. Action immédiate requise."
+        elif alerte_type == 'danger':
+            activity_type = self.env.ref('inov_transit.mail_activity_alerte_danger', False)
+            summary = f"⚠️ ATTENTION - Dossier {self.name} en alerte"
+            note = f"Le dossier {self.name} arrive bientôt à échéance. ETA: {self.date_arrival}. Préparation requise."
+        else:
+            return
+            
+        if activity_type:
+            self.activity_schedule(
+                act_type_xmlid=activity_type.xml_id,
+                summary=summary,
+                note=note,
+                user_id=self.user_id.id or self.env.user.id,
+                date_deadline=fields.Date.today()
+            )
+
+    @api.model
+    def action_update_all_alertes(self):
+        """Action serveur pour mettre à jour toutes les alertes et envoyer un rapport par email"""
+        folders = self.search([('date_arrival', '!=', False)])
+        updated_count = 0
+        
+        # Dictionnaires pour collecter les dossiers par état
+        overdue_folders = []
+        danger_folders = []
+        new_overdue = []
+        new_danger = []
+        
+        for folder in folders:
+            old_alerte = folder.alerte
+            folder.compute_alerte_date()
+            
+            # Collecter les dossiers par état actuel
+            if folder.alerte == 'overdue':
+                overdue_folders.append(folder)
+                if old_alerte != 'overdue':
+                    new_overdue.append(folder)
+            elif folder.alerte == 'danger':
+                danger_folders.append(folder)
+                if old_alerte != 'danger':
+                    new_danger.append(folder)
+            
+            if old_alerte != folder.alerte:
+                updated_count += 1
+        
+        # Envoyer le rapport par email si nécessaire
+        if overdue_folders or danger_folders:
+            self._send_alerte_report(overdue_folders, danger_folders, new_overdue, new_danger)
+                
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Mise à jour des alertes',
+                'message': f'{updated_count} dossier(s) mis à jour. Rapport envoyé par email.',
+                'type': 'success',
+            }
+        }
+
+    def _send_alerte_report(self, overdue_folders, danger_folders, new_overdue, new_danger):
+        """Envoie un rapport par email avec les dossiers en alerte"""
+        # Configuration des destinataires
+        all_users = set()
+        for folder in overdue_folders + danger_folders:
+            if folder.user_id and folder.user_id.email:
+                all_users.add(folder.user_id)
+        
+        # Ajouter les managers de transit
+        transit_managers = self.env.ref('inov_transit.group_transit_manager', False)
+        if transit_managers:
+            for user in transit_managers.users:
+                if user.email:
+                    all_users.add(user)
+        
+        if not all_users:
+            return
+        
+        # Génération du rapport HTML
+        today = fields.Date.today()
+        
+        html_content = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 1000px; margin: 0 auto;">
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <h2 style="color: #dc3545; margin-top: 0;">
+                    🚨 Rapport d'alertes ETA - {today.strftime('%d/%m/%Y')}
+                </h2>
+                <p style="font-size: 16px; color: #6c757d;">
+                    Mise à jour automatique des états d'avancement des dossiers
+                </p>
+            </div>
+            
+            <!-- Résumé statistique -->
+            <div style="background-color: #e9ecef; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                <h3 style="margin-top: 0;">📊 Résumé</h3>
+                <div style="display: flex; justify-content: space-around; text-align: center;">
+                    <div>
+                        <div style="font-size: 24px; font-weight: bold; color: #dc3545;">{len(overdue_folders)}</div>
+                        <div>En retard</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 24px; font-weight: bold; color: #ffc107;">{len(danger_folders)}</div>
+                        <div>En alerte</div>
+                    </div>
+                </div>
+            </div>
+        """
+        
+        # Section dossiers en retard
+        if overdue_folders:
+            html_content += f"""
+            <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                <h3 style="color: #721c24; margin-top: 0;">
+                    🚨 Dossiers en retard ({len(overdue_folders)})
+                </h3>
+                <p style="color: #721c24; margin-bottom: 15px;">
+                    Les dossiers suivants ont dépassé leur ETA et nécessitent une action immédiate :
+                </p>
+                <table style="width: 100%; border-collapse: collapse; background-color: white;">
+                    <thead style="background-color: #dc3545; color: white;">
+                        <tr>
+                            <th style="padding: 12px; text-align: left; border: 1px solid #dee2e6;">N° Dossier</th>
+                            <th style="padding: 12px; text-align: left; border: 1px solid #dee2e6;">Client</th>
+                            <th style="padding: 12px; text-align: center; border: 1px solid #dee2e6;">ETA</th>
+                            <th style="padding: 12px; text-align: center; border: 1px solid #dee2e6;">Retard (jours)</th>
+                            <th style="padding: 12px; text-align: left; border: 1px solid #dee2e6;">Responsable</th>
+                            <th style="padding: 12px; text-align: left; border: 1px solid #dee2e6;">N° B/L</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            """
+            
+            for folder in overdue_folders:
+                retard_jours = (today - folder.date_arrival).days if folder.date_arrival else 0
+                html_content += f"""
+                        <tr style="border-bottom: 1px solid #dee2e6;">
+                            <td style="padding: 10px; border: 1px solid #dee2e6;"><strong>{folder.name}</strong></td>
+                            <td style="padding: 10px; border: 1px solid #dee2e6;">{folder.customer_id.name or 'N/A'}</td>
+                            <td style="padding: 10px; text-align: center; border: 1px solid #dee2e6;">{folder.date_arrival.strftime('%d/%m/%Y') if folder.date_arrival else 'N/A'}</td>
+                            <td style="padding: 10px; text-align: center; color: #dc3545; font-weight: bold; border: 1px solid #dee2e6;">{retard_jours}</td>
+                            <td style="padding: 10px; border: 1px solid #dee2e6;">{folder.user_id.name or 'Non assigné'}</td>
+                            <td style="padding: 10px; border: 1px solid #dee2e6;">{folder.num_brd or 'N/A'}</td>
+                        </tr>
+                """
+            
+            html_content += """
+                    </tbody>
+                </table>
+            </div>
+            """
+        
+        # Section dossiers en alerte
+        if danger_folders:
+            html_content += f"""
+            <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                <h3 style="color: #856404; margin-top: 0;">
+                    ⚠️ Dossiers en alerte ({len(danger_folders)})
+                </h3>
+                <p style="color: #856404; margin-bottom: 15px;">
+                    Les dossiers suivants arrivent à échéance dans les 3 jours :
+                </p>
+                <table style="width: 100%; border-collapse: collapse; background-color: white;">
+                    <thead style="background-color: #ffc107; color: #212529;">
+                        <tr>
+                            <th style="padding: 12px; text-align: left; border: 1px solid #dee2e6;">N° Dossier</th>
+                            <th style="padding: 12px; text-align: left; border: 1px solid #dee2e6;">Client</th>
+                            <th style="padding: 12px; text-align: center; border: 1px solid #dee2e6;">ETA</th>
+                            <th style="padding: 12px; text-align: center; border: 1px solid #dee2e6;">Jours restants</th>
+                            <th style="padding: 12px; text-align: left; border: 1px solid #dee2e6;">Responsable</th>
+                            <th style="padding: 12px; text-align: left; border: 1px solid #dee2e6;">N° B/L</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            """
+            
+            for folder in danger_folders:
+                jours_restants = (folder.date_arrival - today).days if folder.date_arrival else 0
+                html_content += f"""
+                        <tr style="border-bottom: 1px solid #dee2e6;">
+                            <td style="padding: 10px; border: 1px solid #dee2e6;"><strong>{folder.name}</strong></td>
+                            <td style="padding: 10px; border: 1px solid #dee2e6;">{folder.customer_id.name or 'N/A'}</td>
+                            <td style="padding: 10px; text-align: center; border: 1px solid #dee2e6;">{folder.date_arrival.strftime('%d/%m/%Y') if folder.date_arrival else 'N/A'}</td>
+                            <td style="padding: 10px; text-align: center; color: #856404; font-weight: bold; border: 1px solid #dee2e6;">{jours_restants}</td>
+                            <td style="padding: 10px; border: 1px solid #dee2e6;">{folder.user_id.name or 'Non assigné'}</td>
+                            <td style="padding: 10px; border: 1px solid #dee2e6;">{folder.num_brd or 'N/A'}</td>
+                        </tr>
+                """
+            
+            html_content += """
+                    </tbody>
+                </table>
+            </div>
+            """
+        
+        # Message si aucune alerte
+        if not overdue_folders and not danger_folders:
+            html_content += """
+            <div style="background-color: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                <h3 style="color: #155724; margin-top: 0;">
+                    ✅ Aucune alerte
+                </h3>
+                <p style="color: #155724; margin-bottom: 0;">
+                    Excellent ! Tous les dossiers sont à jour. Aucune action immédiate n'est requise.
+                </p>
+            </div>
+            """
+        
+        html_content += f"""
+            <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; font-size: 12px; color: #6c757d;">
+                <p style="margin: 0;">
+                    📧 Ce rapport a été généré automatiquement le {today.strftime('%d/%m/%Y à %H:%M')}.<br>
+                    🔄 Prochaine mise à jour prévue demain à la même heure.
+                </p>
+            </div>
+        </div>
+        """
+        
+        # Envoi de l'email
+        subject = f"🚨 Rapport d'alertes ETA - {len(overdue_folders)} en retard, {len(danger_folders)} en alerte"
+        
+        mail_values = {
+            'subject': subject,
+            'body_html': html_content,
+            'email_to': ','.join([user.email for user in all_users]),
+            'email_from': self.env.user.email or self.env.company.email,
+            'auto_delete': True,
+        }
+        
+        mail = self.env['mail.mail'].create(mail_values)
+        try:
+            mail.send()
+        except Exception as e:
+            _logger.warning(f"Erreur lors de l'envoi du rapport d'alertes: {e}")
+
+    def _send_alerte_report_fallback(self, overdue_folders, danger_folders, all_users):
+        """Méthode supprimée car plus nécessaire"""
+        pass
 
     name = fields.Char(string='Dossier N°', copy=False, index=True, readonly=True, default=lambda self: _('New'))
     num_ot = fields.Char(string='N° OT')
@@ -104,10 +397,9 @@ class TransitFolder(models.Model):
     date_sortie = fields.Date("SORTIE", tracking=True)
     alerte = fields.Selection(
         [('open', 'Ouverture'), ('danger', 'Danger'), ('overdue', 'Depasse')],
-        "Alerte", compute="compute_alerte_date", default="open")
+        "Alerte", compute="compute_alerte_date", store=True, default="open")
     customer_id = fields.Many2one(
         'res.partner',
-        domain="[('customer_rank', '>', 0)]",
         string='Client',
         tracking=True
     )
@@ -278,101 +570,423 @@ class TransitFolder(models.Model):
     )
     regime = fields.Char(string="Regime")
     package_ids = fields.One2many('package.folders', 'transit_id', string="Conteneurs")
+    
+    # Champs pour la gestion des activités et des utilisateurs
+   
+    is_scheduled = fields.Boolean('Activité programmée')
+    
+    # Champs analytiques pour les statistiques
+    debit = fields.Monetary(
+        compute='_compute_debit_credit_balance', 
+        string='Débit',
+        currency_field='currency_id'
+    )
+    credit = fields.Monetary(
+        compute='_compute_debit_credit_balance', 
+        string='Crédit',
+        currency_field='currency_id'
+    )
+    balance = fields.Monetary(
+        compute='_compute_debit_credit_balance', 
+        string='Solde',
+        currency_field='currency_id'
+    )
+    line_ids = fields.One2many(
+        'account.analytic.line',
+        compute='_compute_analytic_lines',
+        string="Lignes analytiques",
+    )
+    
+    # Champs pour séparer les revenus et charges
+    revenue_line_ids = fields.One2many(
+        'account.analytic.line',
+        compute='_compute_revenue_expense_lines',
+        string="Lignes de revenus",
+        help="Lignes analytiques avec montant positif (revenus)"
+    )
+    expense_line_ids = fields.One2many(
+        'account.analytic.line',
+        compute='_compute_revenue_expense_lines',
+        string="Lignes de charges",
+        help="Lignes analytiques avec montant négatif (charges)"
+    )
+    
+    customer_invoice_count = fields.Integer(
+        compute='_compute_invoice_counts',
+        string="Nombre factures clients"
+    )
+    vendor_bill_count = fields.Integer(
+        compute='_compute_invoice_counts', 
+        string="Nombre factures fournisseurs"
+    )
+    
+    def compute_current_user(self):
+        """ Vérifie si l'utilisateur connecté est celui assigné à l'activité en cours """
+        for record in self:
+            record.current_user = (
+                record.activity_user_id and 
+                record.activity_user_id == self.env.user
+            )
+            
+    
+    analytic_id = fields.Many2one(
+        'account.analytic.account',
+        string='Compte Analytique'
+        )
+    analytic_distribution = fields.Json(
+        'Distribution Analytique',
+    )
+    analytic_precision = fields.Integer(
+        store=False,
+        default=lambda self: self.env['decimal.precision'].precision_get("Percentage Analytic"),
+    )
+    current_user  = fields.Boolean(compute="compute_current_user")
+    current_activity_id = fields.Many2one('mail.activity', string="Activité en cours")
+  
+    
+    def write(self, values):
+        """ Synchronise le nom du compte analytique avec le nom du dossier """
+        result = super(TransitFolder, self).write(values)
+        
+        # Si le nom du dossier change, synchroniser avec le compte analytique
+        if 'name' in values:
+            for record in self:
+                if record.analytic_distribution:
+                    # Récupérer le compte analytique lié
+                    account_ids = []
+                    for account_ids_str in record.analytic_distribution.keys():
+                        account_ids.extend([int(id_) for id_ in account_ids_str.split(',')])
+                    
+                    if account_ids:
+                        analytic_account = record.env['account.analytic.account'].browse(account_ids[0])
+                        if analytic_account.exists():
+                            analytic_account.write({'name': record.name})
+        
+        return result
+    
+    
+    def get_next_activities(self):
+        """ Récupérer les activités suivantes """
+        self.ensure_one()
+        next_activity = self.activity_ids
+        if len(next_activity) >= 1:
+            return next_activity
+        else:
+            return False 
 
     @api.model
     def create(self, values):
+        """ Création d'un dossier avec distribution analytique automatique """
+        # Génération des séquences selon le type de stage
         res = []
         if values['stages'] == 'transit':
             if values.get('name', _('New')) == _('New'):
                 values['name'] = self.env['ir.sequence'].next_by_code('transit.invoice') or _('New')
-            # channel = self.env.ref('transit_invoice.channel_transit_lmc')
-            ot_id = self.env.ref('transit_invoice.mail_act_rh_courrier_order').id
-            new_id = self.env.ref('transit_invoice.mail_act_rh_courrier_folder').id
+            ot_id = self.env.ref('inov_transit.mail_act_rh_courrier_order').id
+            new_id = self.env.ref('inov_transit.mail_act_rh_courrier_folder').id
             res = [ot_id, new_id]
         if values['stages'] == 'accone':
             if values.get('name', _('New')) == _('New'):
                 values['name'] = self.env['ir.sequence'].next_by_code('transit.acconage') or _('New')
-            # channel = self.env.ref('transit_invoice.channel_acconage')
         if values['stages'] == 'ship':
             if values.get('name', _('New')) == _('New'):
                 values['name'] = self.env['ir.sequence'].next_by_code('transit.shipping') or _('New')
-            # channel = self.env.ref('transit_invoice.channel_shipping')
+        
+        # Créer le dossier avec le mixin analytique
         result = super(TransitFolder, self).create(values)
-        # result.message_subscribe(channel_ids=channel.ids)
+        
+        plan = False
+        if result.stages == 'transit':
+            plan = self.env.ref('inov_account.analytic_plan_transit', raise_if_not_found=False)
+        elif result.stages == 'accone':
+            plan = self.env.ref('inov_account.analytic_plan_acconnages', raise_if_not_found=False)
+        elif result.stages == 'ship':
+            plan = self.env.ref('inov_account.analytic_plan_shippings', raise_if_not_found=False)
+        
+        if plan and result.name:
+            analytic_account = self.env['account.analytic.account'].sudo().create({
+                'name': result.name,
+                'plan_id': plan.id
+            })
+            
+            result.write({
+                'analytic_id': analytic_account.id,
+                'analytic_distribution': {str(analytic_account.id): 100},
+                'len_task': len(self.env['mail.activity.type'].search([('stages', '=', result.stages)]))
+            })
+
+        # Créer les activités initiales pour le transit
         for task in res:
             create_vals = {
                 'activity_type_id': task,
-                'summary': self.env['mail.activity.type'].browse([task]).name,
+                'summary': result.env['mail.activity.type'].browse([task]).name,
                 'automated': True,
                 'note': '',
                 'date_deadline': result.compute_deadline_date(result.date_open, 0),
-                'res_model_id': self.env['ir.model']._get(result._name).id,
+                'res_model_id': result.env['ir.model']._get(result._name).id,
                 'res_id': result.id,
                 'stages': result.stages
             }
-            activity = self.env['mail.activity'].create(create_vals)
+            activity = result.env['mail.activity'].create(create_vals)
             activity.action_feedback()
-        result.write({
-            'len_task': len(res),
-        })
+            
+      
         return result
+    
+    def mark_as_done(self):
+        """ Fonction exécutée quand l'utilisateur clique sur 'Marquer comme fait' """
+        self.ensure_one()
+        current_activity = self.get_next_activities()
+        if not current_activity:
+            raise ValidationError(_("Aucune activité en cours à valider."))
+        # Marquer l'activité comme terminée et programmer la prochaine
+        current_activity.action_done_schedule_next()
+        if self.stages == 'ship':    
+            self.stage_id = self.activity_type_id.stage_id.id
+        return True   
 
-
-    def activity_scheduler(self):
-        res = []
-        ot_id = self.env.ref('transit_invoice.mail_act_rh_courrier_order').id
-        new_id = self.env.ref('transit_invoice.mail_act_rh_courrier_folder').id
-        res = [ot_id, new_id]
-        for rec in self:
-
-            if rec.name == _('New'):
-                raise UserError("Veuillez saisir Le Numero du dossier avant de planifier!!!!")
-            if not rec.date_arrival:
-                raise UserError("Ce Dossier n'a pas d'ETA inserée, Veuillez La Saisir avant de planifier!!!!")
-            if rec.len_task == 2:
-                activity_types = self.env['mail.activity.type'].search([('stages', '=', rec.stages)])
-                duree = 3
-                for activity in activity_types.filtered(lambda x: x.id not in res):
-                    create_vals = {
-                        'activity_type_id': activity.id,
-                        'summary': activity.name,
-                        'automated': True,
-                        'note': '',
-                        'user_id': activity.responsible_id.id if activity.responsible_id else self.env.user.id,
-                        'date_deadline': rec.compute_deadline_date(rec.date_arrival, duree),
-                        'res_model_id': self.env['ir.model']._get(rec._name).id,
-                        'res_id': rec.id,
-                        'stages': rec.stages
-                    }
-                    duree += 1
-                    self.env['mail.activity'].create(create_vals)
-                rec.write({
-                    'date_deadline': rec.compute_deadline_date(rec.date_arrival, len(activity_types)),
-                    'len_task': self.len_task + len(activity_types)
-                })
-            elif not rec.len_task:
-                activity_types = self.env['mail.activity.type'].search([('stages', '=', rec.stages)])
-                duree = 3
-                for activity in activity_types:
-                    create_vals = {
-                        'activity_type_id': activity.id,
-                        'summary': activity.name,
-                        'automated': True,
-                        'note': '',
-                        'user_id': activity.responsible_id.id if activity.responsible_id else self.env.user.id,
-                        'date_deadline': rec.compute_deadline_date(rec.date_arrival, duree),
-                        'res_model_id': self.env['ir.model']._get(rec._name).id,
-                        'res_id': rec.id,
-                        'stages': rec.stages
-                    }
-                    duree += 1
-                    self.env['mail.activity'].create(create_vals)
-                rec.write({
-                    'date_deadline': rec.compute_deadline_date(rec.date_arrival, len(activity_types)),
-                    'len_task': self.len_task + len(activity_types)
-                })
+    def activity_scheduler(self): 
+        for record in self:
+            if not record.task_checklist:
+                activity_xml = ''
+                if record.stages == 'transit':
+                    activity_xml = 'inov_transit.mail_act_rh_courrier_order'
+                if record.stages == 'accone':
+                    activity_xml = 'inov_transit.mail_act_rh_courrier_order'
+                if record.stages == 'ship':
+                    activity_xml = 'inov_shipping.mail_act_rh_shipping_0'
             else:
-                raise UserError('Ce Dossier a déjà été Planifié....')
+                activity_xml = record.activity_type_id.name
+                
+            record.activity_schedule(
+            act_type_xmlid = activity_xml,
+            date_deadline = record.compute_deadline_date(record.date_open, 2),
+            note='',
+            summary = self.env.ref(activity_xml).name,
+            user_id = self.env.ref(activity_xml).responsible_id.id)
+            record.is_scheduled = True
+        return True
+
+    
+    def _compute_analytic_lines(self):
+        """ Calcule les lignes analytiques liées à ce dossier """
+        for record in self:
+            if record.analytic_distribution:
+                # Rechercher les lignes analytiques liées aux comptes de cette distribution
+                account_ids = []
+                for account_ids_str in record.analytic_distribution.keys():
+                    account_ids.extend([int(id_) for id_ in account_ids_str.split(',')])
+                
+                lines = self.env['account.analytic.line'].search([
+                    ('auto_account_id', 'in', account_ids)
+                ])
+                record.line_ids = lines
+            else:
+                record.line_ids = self.env['account.analytic.line']
+
+    def _compute_revenue_expense_lines(self):
+        """ Calcule séparément les lignes de revenus et de charges """
+        for record in self:
+            if record.analytic_distribution:
+                # Rechercher les lignes analytiques liées aux comptes de cette distribution
+                account_ids = []
+                for account_ids_str in record.analytic_distribution.keys():
+                    account_ids.extend([int(id_) for id_ in account_ids_str.split(',')])
+                
+                if account_ids:
+                    # Récupérer toutes les lignes analytiques
+                    all_lines = self.env['account.analytic.line'].search([
+                        ('auto_account_id', 'in', account_ids)
+                    ])
+                    
+                    # Séparer les revenus (montant positif) et charges (montant négatif)
+                    revenue_lines = all_lines.filtered(lambda l: l.amount > 0)
+                    expense_lines = all_lines.filtered(lambda l: l.amount < 0)
+                    
+                    record.revenue_line_ids = revenue_lines
+                    record.expense_line_ids = expense_lines
+                else:
+                    record.revenue_line_ids = self.env['account.analytic.line']
+                    record.expense_line_ids = self.env['account.analytic.line']
+            else:
+                record.revenue_line_ids = self.env['account.analytic.line']
+                record.expense_line_ids = self.env['account.analytic.line']
+
+    @api.depends('line_ids.amount')
+    def _compute_debit_credit_balance(self):
+        """ Calcule débit, crédit et solde à partir des lignes analytiques """
+        for record in self:
+            if record.line_ids:
+                debit = sum(line.amount for line in record.line_ids if line.amount > 0)
+                credit = abs(sum(line.amount for line in record.line_ids if line.amount < 0))
+                record.debit = debit
+                record.credit = credit
+                record.balance = debit - credit
+            else:
+                record.debit = 0.0
+                record.credit = 0.0
+                record.balance = 0.0
+
+    @api.depends('analytic_distribution')
+    def _compute_invoice_counts(self):
+        """ Calcule le nombre de factures clients et fournisseurs liées via la distribution analytique """
+        for record in self:
+            customer_count = 0
+            vendor_count = 0
+            
+            # Obtenir les IDs des comptes analytiques de la distribution
+            account_ids = []
+            if record.analytic_distribution:
+                for account_ids_str in record.analytic_distribution.keys():
+                    account_ids.extend([int(id_) for id_ in account_ids_str.split(',')])
+            
+            if account_ids:
+                # Compter les factures clients
+                query = record.env['account.move.line']._search([('move_id.move_type', 'in', record.env['account.move'].get_sale_types())])
+                for account_id in account_ids:
+                    query.add_where('analytic_distribution ? %s', [str(account_id)])
+                query_string, query_param = query.select('DISTINCT account_move_line.move_id')
+                record._cr.execute(query_string, query_param)
+                customer_count = len(record._cr.dictfetchall())
+                
+                # Compter les factures fournisseurs
+                query = record.env['account.move.line']._search([('move_id.move_type', 'in', record.env['account.move'].get_purchase_types())])
+                for account_id in account_ids:
+                    query.add_where('analytic_distribution ? %s', [str(account_id)])
+                query_string, query_param = query.select('DISTINCT account_move_line.move_id')
+                record._cr.execute(query_string, query_param)
+                vendor_count = len(record._cr.dictfetchall())
+            
+            record.customer_invoice_count = customer_count
+            record.vendor_bill_count = vendor_count
+
+    def action_view_analytic_lines(self):
+        """ Action pour voir les lignes analytiques """
+        self.ensure_one()
+        action = self.env["ir.actions.actions"]._for_xml_id("analytic.account_analytic_line_action")
+        
+        # Obtenir les IDs des comptes analytiques de la distribution
+        account_ids = []
+        if self.analytic_distribution:
+            for account_ids_str in self.analytic_distribution.keys():
+                account_ids.extend([int(id_) for id_ in account_ids_str.split(',')])
+        
+        action['domain'] = [('account_id', 'in', account_ids)]
+        action['context'] = {
+            'default_account_id': account_ids[0] if account_ids else False,
+        }
+        return action
+
+    def action_view_revenue_lines(self):
+        """ Action pour voir uniquement les lignes de revenus """
+        self.ensure_one()
+        action = self.env["ir.actions.actions"]._for_xml_id("analytic.account_analytic_line_action")
+        
+        # Obtenir les IDs des lignes de revenus
+        revenue_ids = self.revenue_line_ids.ids
+        
+        action['domain'] = [('id', 'in', revenue_ids)]
+        action['name'] = f'Revenus - {self.name}'
+        action['context'] = {
+            'default_amount': 0.0,
+            'search_default_filter_amount_positive': True,
+        }
+        return action
+
+    def action_view_expense_lines(self):
+        """ Action pour voir uniquement les lignes de charges """
+        self.ensure_one()
+        action = self.env["ir.actions.actions"]._for_xml_id("analytic.account_analytic_line_action")
+        
+        # Obtenir les IDs des lignes de charges
+        expense_ids = self.expense_line_ids.ids
+        
+        action['domain'] = [('id', 'in', expense_ids)]
+        action['name'] = f'Charges - {self.name}'
+        action['context'] = {
+            'default_amount': 0.0,
+            'search_default_filter_amount_negative': True,
+        }
+        return action
+
+    def action_view_customer_invoices(self):
+        """ Action pour voir les factures clients liées via la distribution analytique """
+        self.ensure_one()
+        # Obtenir les IDs des comptes analytiques de la distribution
+        account_ids = []
+        if self.analytic_distribution:
+            for account_ids_str in self.analytic_distribution.keys():
+                account_ids.extend([int(id_) for id_ in account_ids_str.split(',')])
+        
+        if not account_ids:
+            # Si pas de distribution analytique, retourner une vue vide
+            return {
+                "type": "ir.actions.act_window",
+                "res_model": "account.move",
+                "domain": [('id', '=', False)],
+                "context": {"create": False, 'default_move_type': 'out_invoice'},
+                "name": _("Factures clients"),
+                'view_mode': 'tree,form',
+            }
+        
+        # Rechercher les factures clients avec distribution analytique correspondante
+        query = self.env['account.move.line']._search([('move_id.move_type', 'in', self.env['account.move'].get_sale_types())])
+        for account_id in account_ids:
+            query.add_where('analytic_distribution ? %s', [str(account_id)])
+        query_string, query_param = query.select('DISTINCT account_move_line.move_id')
+        self._cr.execute(query_string, query_param)
+        move_ids = [line.get('move_id') for line in self._cr.dictfetchall()]
+        
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "account.move",
+            "domain": [('id', 'in', move_ids)],
+            "context": {"create": False, 'default_move_type': 'out_invoice'},
+            "name": _("Factures clients"),
+            'view_mode': 'tree,form',
+        }
+
+    def action_view_vendor_bills(self):
+        """ Action pour voir les factures fournisseurs liées via la distribution analytique """
+        self.ensure_one()
+        # Obtenir les IDs des comptes analytiques de la distribution
+        account_ids = []
+        if self.analytic_distribution:
+            for account_ids_str in self.analytic_distribution.keys():
+                account_ids.extend([int(id_) for id_ in account_ids_str.split(',')])
+        
+        if not account_ids:
+            # Si pas de distribution analytique, retourner une vue vide
+            return {
+                "type": "ir.actions.act_window",
+                "res_model": "account.move",
+                "domain": [('id', '=', False)],
+                "context": {"create": False, 'default_move_type': 'in_invoice'},
+                "name": _("Factures fournisseurs"),
+                'view_mode': 'tree,form',
+            }
+        
+        # Rechercher les factures fournisseurs avec distribution analytique correspondante
+        query = self.env['account.move.line']._search([('move_id.move_type', 'in', self.env['account.move'].get_purchase_types())])
+        for account_id in account_ids:
+            query.add_where('analytic_distribution ? %s', [str(account_id)])
+        query_string, query_param = query.select('DISTINCT account_move_line.move_id')
+        self._cr.execute(query_string, query_param)
+        move_ids = [line.get('move_id') for line in self._cr.dictfetchall()]
+        
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "account.move",
+            "domain": [('id', 'in', move_ids)],
+            "context": {"create": False, 'default_move_type': 'in_invoice'},
+            "name": _("Factures fournisseurs"),
+            'view_mode': 'tree,form',
+        }
+
+    def toggle_active(self):
+        """ Bascule l'état actif/archivé du dossier """
+        for record in self:
+            record.active = not record.active
 
 
     # @api.onchange('date_arrival')
@@ -380,7 +994,7 @@ class TransitFolder(models.Model):
     #     self.ensure_one()
     #     for follow in self.message_follower_ids:
     #         channel = follow.channel_id
-    #         channel.message_post_with_view('transit_invoice.message_channel_folder_link',
+    #         channel.message_post_with_view('inov_transit.message_channel_folder_link',
     #                                        values={'self': self, 'origin': self},
     #                                        subtype_id=self.env.ref('mail.mt_comment').id)
 
@@ -396,7 +1010,7 @@ class TransitFolder(models.Model):
         return stages.browse(stage_ids)
 
     def action_view_services(self):
-        action = self.env.ref('transit_invoice.act_res_partner_2_transit_invoice').read()[0]
+        action = self.env.ref('inov_transit.act_res_partner_2_inov_transit').read()[0]
         action['domain'] = [('transit_id', '=', self.id)]
         action['context'] = {
             'default_courier_id': self.id,
@@ -486,7 +1100,7 @@ class TransitFolder(models.Model):
                 'type': 'ir.actions.act_window',
                 'view_mode': 'form',
                 'res_model': 'stage.transit.wizard',
-                'view_id': self.env.ref('transit_invoice.wizard_debour_transit_form').id,
+                'view_id': self.env.ref('inov_transit.wizard_debour_transit_form').id,
                 'context': {
                     'default_transit_id': record.id,
                     'default_number': record.number,
@@ -508,21 +1122,21 @@ class TransitFolder(models.Model):
     #             if record.stages == 'transit':
     #                 dms_vals = {
     #                     'name': record.customer_id.name,
-    #                     'parent_directory': self.env.ref('transit_invoice.lmc_directory_01').id,
+    #                     'parent_directory': self.env.ref('inov_transit.lmc_directory_01').id,
     #                     'transit_id': record.id,
     #                 }
     #                 parent_obj = document_obj.create(dms_vals)
     #             if record.stages == 'ship':
     #                 dms_vals = {
     #                     'name': record.name,
-    #                     'parent_directory': self.env.ref('transit_invoice.lmc_directory_03').id,
+    #                     'parent_directory': self.env.ref('inov_transit.lmc_directory_03').id,
     #                     'transit_id': record.id,
     #                 }
     #                 parent_obj = document_obj.create(dms_vals)
     #             if record.stages == 'accone':
     #                 dms_vals = {
     #                     'name': record.name,
-    #                     'parent_directory': self.env.ref('transit_invoice.lmc_directory_02').id,
+    #                     'parent_directory': self.env.ref('inov_transit.lmc_directory_02').id,
     #                     'transit_id': record.id,
     #                 }
     #                 parent_obj = document_obj.create(dms_vals)
@@ -571,7 +1185,7 @@ class TransitFolder(models.Model):
 
     def invoice_line_debour(self, invoice):
         self.ensure_one()
-        product = self.env.ref('transit_invoice.product_product_debours')
+        product = self.env.ref('inov_transit.product_product_debours')
         account = product.property_account_income_id or product.categ_id.property_account_income_categ_id
         if not account:
             raise UserError(
@@ -596,6 +1210,21 @@ class TransitFolder(models.Model):
                 'invoice_line_tax_ids': [(6, 0, taxes.ids)],
             })]
         })
+
+    def action_create_final_invoice(self):
+        """Méthode de base pour la création de facture définitive - à surcharger dans les modules héritiers"""
+        self.ensure_one()
+        # Cette méthode sera surchargée dans inov_account si ce module est installé
+        # Sinon, on retourne une action par défaut
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Information',
+                'message': 'La fonctionnalité de facture définitive nécessite le module inov_account.',
+                'type': 'warning',
+            }
+        }
 
 
 class EtapesTransitFolder(models.Model):

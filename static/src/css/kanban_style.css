@@ -1,0 +1,96 @@
+/* Vue Kanban améliorée pour dossiers transit */
+.o_kanban_record {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef;
+}
+
+.o_kanban_record:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+.o_kanban_record_title {
+    color: #2c3e50;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+}
+
+.oe_kanban_content {
+    padding: 1rem;
+}
+
+/* Badges personnalisés */
+.badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+/* Progress bar personnalisée */
+.progress {
+    border-radius: 10px;
+    background-color: #f8f9fa;
+}
+
+.progress-bar {
+    border-radius: 10px;
+}
+
+/* Couleurs de cartes par défaut */
+.oe_kanban_color_0 {
+    border-left: 4px solid #6c757d;
+}
+
+.oe_kanban_color_1 {
+    border-left: 4px solid #dc3545;
+}
+
+.oe_kanban_color_2 {
+    border-left: 4px solid #fd7e14;
+}
+
+.oe_kanban_color_3 {
+    border-left: 4px solid #ffc107;
+}
+
+.oe_kanban_color_4 {
+    border-left: 4px solid #28a745;
+}
+
+.oe_kanban_color_5 {
+    border-left: 4px solid #20c997;
+}
+
+.oe_kanban_color_6 {
+    border-left: 4px solid #17a2b8;
+}
+
+.oe_kanban_color_7 {
+    border-left: 4px solid #007bff;
+}
+
+.oe_kanban_color_8 {
+    border-left: 4px solid #6f42c1;
+}
+
+.oe_kanban_color_9 {
+    border-left: 4px solid #e83e8c;
+}
+
+/* Animation pour les badges d'alerte */
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.bg-danger {
+    animation: pulse 2s infinite;
+}

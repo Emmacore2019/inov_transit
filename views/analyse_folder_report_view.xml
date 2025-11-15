@@ -30,7 +30,7 @@
         <field name="search_view_id" ref="view_transit_folder_filter"/>
         <field name="help">Depuis ce Tableau de Bord vous pouvez voir toutes les information que vous souhaitez</field>
     </record>
-     <menuitem name="Dossiers" action="action_account_invoice_report_transit_folder" id="menu_action_transit_invoice_report_all" parent="menu_report_id" sequence="1"/>
+     <menuitem name="Dossiers" action="action_account_invoice_report_transit_folder" id="menu_action_inov_transit_report_all" parent="menu_report_id" sequence="1"/>
 
     </data>
 </odoo>
