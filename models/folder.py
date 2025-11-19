@@ -145,7 +145,7 @@ class TransitFolder(models.Model):
             
         if activity_type:
             self.activity_schedule(
-                act_type_xmlid=activity_type.xml_id,
+                activity_type_id=activity_type.id,
                 summary=summary,
                 note=note,
                 user_id=self.user_id.id or self.env.user.id,
